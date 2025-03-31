@@ -1,0 +1,61 @@
+#hover-translate-tooltip {
+  position: absolute;
+  z-index: 999999;
+  background-color: white;
+  color: #333;
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  padding: 12px;
+  max-width: 320px;
+  font-family: 'Arial', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: opacity 0.3s ease;
+  border: 1px solid #ddd;
+  pointer-events: auto;
+  user-select: text;
+}
+
+/* Make sure the tooltip is visible and above other elements */
+#hover-translate-tooltip {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.hover-translate-original {
+  font-weight: bold;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  color: #007bff;
+}
+
+.hover-translate-translation {
+  margin-bottom: 8px;
+}
+
+.hover-translate-pronunciation {
+  margin-bottom: 8px;
+  font-style: italic;
+  color: #666;
+}
+
+.hover-translate-examples {
+  margin-top: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+}
+
+.hover-translate-example {
+  font-size: 13px;
+  color: #555;
+  font-style: italic;
+  margin-bottom: 6px;
+  padding-left: 10px;
+  border-left: 2px solid #ccc;
+}
+
+.hover-translate-example:last-child {
+  margin-bottom: 0;
+} 

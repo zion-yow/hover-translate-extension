@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>创建临时图标</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      margin: 10px;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .icons {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .icon-container {
+      margin: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>临时图标生成器</h1>
+  <p>点击下方按钮生成并下载临时图标文件</p>
+  
+  <div class="icons">
+    <div class="icon-container">
+      <canvas id="canvas16" width="16" height="16"></canvas>
+      <div>16x16</div>
+      <button onclick="downloadIcon(16)">下载 icon16.png</button>
+    </div>
+    
+    <div class="icon-container">
+      <canvas id="canvas48" width="48" height="48"></canvas>
+      <div>48x48</div>
+      <button onclick="downloadIcon(48)">下载 icon48.png</button>
+    </div>
+    
+    <div class="icon-container">
+      <canvas id="canvas128" width="128" height="128"></canvas>
+      <div>128x128</div>
+      <button onclick="downloadIcon(128)">下载 icon128.png</button>
+    </div>
+  </div>
+  
+  <button onclick="downloadAllIcons()">下载所有图标</button>
+  
+  <script>
+    // Draw icon on canvas
+    function drawIcon(size) {
+      const canvas = document.getElementById(`canvas${size}`);
+      const ctx = canvas.getContext('2d');
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, size, size);
+      
+      // Draw background
+      ctx.fillStyle = '#007bff';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Draw text
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      if (size === 16) {
+        ctx.font = 'bold 10px Arial';
+        ctx.fillText('HT', size/2, size/2);
+      } else if (size === 48) {
+        ctx.font = 'bold 24px Arial';
+        ctx.fillText('HT', size/2, size/2);
+      } else {
+        ctx.font = 'bold 60px Arial';
+        ctx.fillText('HT', size/2, size/2);
+        
+        // Draw decorative lines for the larger icon
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(size * 0.2, size * 0.75);
+        ctx.lineTo(size * 0.8, size * 0.75);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(size * 0.3, size * 0.85);
+        ctx.lineTo(size * 0.7, size * 0.85);
+        ctx.stroke();
+      }
+    }
+    
+    // Download icon
+    function downloadIcon(size) {
+      const canvas = document.getElementById(`canvas${size}`);
+      const link = document.createElement('a');
+      link.download = `icon${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    // Download all icons
+    function downloadAllIcons() {
+      downloadIcon(16);
+      downloadIcon(48);
+      downloadIcon(128);
+    }
+    
+    // Draw icons on load
+    window.onload = function() {
+      drawIcon(16);
+      drawIcon(48);
+      drawIcon(128);
+    };
+  </script>
+</body>
+</html>

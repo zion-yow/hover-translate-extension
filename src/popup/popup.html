@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>悬停翻译设置</title>
+  <style>
+    body {
+      width: 280px;
+      padding: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #333;
+      font-size: 14px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .logo {
+      width: 24px;
+      height: 24px;
+      margin-right: 10px;
+    }
+    
+    h1 {
+      margin: 0;
+      font-size: 16px;
+    }
+    
+    .toggle-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .3s;
+      border-radius: 24px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: #2c7be5;
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    
+    .language-options {
+      margin: 15px 0;
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    
+    .option {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .option:last-child {
+      margin-bottom: 0;
+    }
+    
+    .option label {
+      margin-left: 8px;
+      cursor: pointer;
+    }
+    
+    .separator {
+      height: 1px;
+      background-color: #eee;
+      margin: 15px 0;
+    }
+    
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #777;
+    }
+    
+    .advanced-link {
+      color: #2c7be5;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    
+    .advanced-link:hover {
+      text-decoration: underline;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #292a2d;
+        color: #e8eaed;
+      }
+      
+      .language-options {
+        background-color: #35363a;
+        border-color: #555;
+      }
+      
+      .separator {
+        background-color: #555;
+      }
+      
+      .footer {
+        color: #999;
+      }
+    }
+    
+    /* 添加滑块样式 */
+    .slider-container {
+      margin: 15px 0;
+    }
+    
+    .delay-slider {
+      width: 100%;
+      margin-top: 8px;
+    }
+    
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      font-size: 12px;
+      color: #777;
+    }
+    
+    .delay-value {
+      font-weight: bold;
+      color: #2c7be5;
+      margin-left: 5px;
+    }
+    
+    /* 暗色模式调整 */
+    @media (prefers-color-scheme: dark) {
+      .delay-value {
+        color: #56a0ff;
+      }
+      
+      .slider-labels {
+        color: #999;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="../icons/icon32.png" alt="Logo" class="logo">
+    <h1>悬停翻译</h1>
+  </div>
+  
+  <div class="toggle-container">
+    <span>启用翻译</span>
+    <label class="toggle">
+      <input type="checkbox" id="enableToggle" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+  
+  <div class="language-options">
+    <div class="option">
+      <input type="radio" id="jaOnly" name="langMode" value="ja">
+      <label for="jaOnly">仅日语翻译</label>
+    </div>
+    <div class="option">
+      <input type="radio" id="enOnly" name="langMode" value="en">
+      <label for="enOnly">仅英语翻译</label>
+    </div>
+    <div class="option">
+      <input type="radio" id="allLang" name="langMode" value="all">
+      <label for="allLang">所有语言</label>
+    </div>
+    <div class="option">
+      <input type="checkbox" id="debugMode">
+      <label for="debugMode">调试模式 (显示详细日志)</label>
+    </div>
+  </div>
+  
+  <div class="separator"></div>
+  
+  <div class="slider-container">
+    <label for="delaySlider">
+      悬停延迟: <span id="delayValue" class="delay-value">500</span>毫秒
+    </label>
+    <input type="range" id="delaySlider" class="delay-slider" 
+           min="100" max="1500" step="50" value="500">
+    <div class="slider-labels">
+      <span>快速</span>
+      <span>平衡</span>
+      <span>精确</span>
+    </div>
+  </div>
+  
+  <div class="delay-presets">
+    <button class="preset-button" data-delay="200">快速</button>
+    <button class="preset-button" data-delay="500">默认</button>
+    <button class="preset-button" data-delay="1000">精确</button>
+  </div>
+  
+  <div class="separator"></div>
+  
+  <div class="footer">
+    <a class="advanced-link" id="advancedSettings">高级设置</a>
+    <button id="saveButton" class="save-button">应用设置</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html> 

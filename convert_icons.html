@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Convert SVG to PNG Icons</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .preview {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .preview img {
+      border: 1px solid #ccc;
+      padding: 5px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .instructions {
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      border-left: 4px solid #007bff;
+    }
+  </style>
+</head>
+<body>
+  <h1>SVG到PNG图标转换工具</h1>
+  
+  <div class="container">
+    <div class="instructions">
+      <p>此工具可以帮助您将SVG图标转换为浏览器扩展所需的PNG图标。</p>
+      <p>操作步骤:</p>
+      <ol>
+        <li>点击"加载SVG"按钮并选择您的SVG文件（或使用默认的图标）</li>
+        <li>预览将会显示不同尺寸的图标</li>
+        <li>点击"下载PNG图标"按钮下载所有尺寸的图标</li>
+        <li>将下载的图标放入您的扩展项目的icons文件夹中</li>
+      </ol>
+    </div>
+    
+    <div>
+      <button id="loadSvgBtn">加载SVG</button>
+      <input type="file" id="svgFile" accept=".svg" style="display: none;">
+    </div>
+    
+    <div class="preview">
+      <div>
+        <p>16x16:</p>
+        <canvas id="canvas16" width="16" height="16"></canvas>
+        <img id="preview16" alt="16x16 Preview">
+      </div>
+      <div>
+        <p>48x48:</p>
+        <canvas id="canvas48" width="48" height="48"></canvas>
+        <img id="preview48" alt="48x48 Preview">
+      </div>
+      <div>
+        <p>128x128:</p>
+        <canvas id="canvas128" width="128" height="128"></canvas>
+        <img id="preview128" alt="128x128 Preview">
+      </div>
+    </div>
+    
+    <button id="downloadBtn" disabled>下载PNG图标</button>
+  </div>
+  
+  <script>
+    // DOM elements
+    const loadSvgBtn = document.getElementById('loadSvgBtn');
+    const svgFileInput = document.getElementById('svgFile');
+    const downloadBtn = document.getElementById('downloadBtn');
+    
+    // Canvas elements
+    const canvas16 = document.getElementById('canvas16');
+    const canvas48 = document.getElementById('canvas48');
+    const canvas128 = document.getElementById('canvas128');
+    
+    // Preview images
+    const preview16 = document.getElementById('preview16');
+    const preview48 = document.getElementById('preview48');
+    const preview128 = document.getElementById('preview128');
+    
+    // Load default SVG
+    let defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="16" fill="#007bff" />
+  <text x="64" y="64" font-size="60" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">HT</text>
+  <path d="M20 90 L108 90" stroke="white" stroke-width="6" stroke-linecap="round" />
+  <path d="M30 106 L98 106" stroke="white" stroke-width="6" stroke-linecap="round" />
+</svg>`;
+    
+    // Event listeners
+    loadSvgBtn.addEventListener('click', () => svgFileInput.click());
+    svgFileInput.addEventListener('change', handleSvgFile);
+    downloadBtn.addEventListener('click', downloadPngIcons);
+    
+    // Load default SVG on page load
+    window.addEventListener('load', () => {
+      renderSvgToCanvas(defaultSvg);
+      downloadBtn.disabled = false;
+    });
+    
+    // Handle SVG file selection
+    function handleSvgFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const svgContent = e.target.result;
+        renderSvgToCanvas(svgContent);
+        downloadBtn.disabled = false;
+      };
+      reader.readAsText(file);
+    }
+    
+    // Render SVG to canvas
+    function renderSvgToCanvas(svgContent) {
+      // Create SVG blob
+      const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+      
+      // Create image
+      const img = new Image();
+      img.onload = () => {
+        // Render to different size canvases
+        renderToCanvas(canvas16, img);
+        renderToCanvas(canvas48, img);
+        renderToCanvas(canvas128, img);
+        
+        // Update previews
+        preview16.src = canvas16.toDataURL('image/png');
+        preview48.src = canvas48.toDataURL('image/png');
+        preview128.src = canvas128.toDataURL('image/png');
+      };
+      img.src = svgUrl;
+    }
+    
+    // Render image to canvas with proper sizing
+    function renderToCanvas(canvas, img) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
+    
+    // Download PNG icons
+    function downloadPngIcons() {
+      downloadCanvasAsPng(canvas16, 'icon16.png');
+      downloadCanvasAsPng(canvas48, 'icon48.png');
+      downloadCanvasAsPng(canvas128, 'icon128.png');
+    }
+    
+    // Download canvas as PNG
+    function downloadCanvasAsPng(canvas, filename) {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html> 
