@@ -21,40 +21,56 @@ function debugLog(message, level = 'info') {
   }
 }
 
-// 内容脚本加载时的通知日志
-debugLog('Content script loaded');
-
 /**
  * 重构 tooltip 实现，使用 Shadow DOM 和组件化方式
- * 将替代当前的 div 元素实现
  */
 class TranslationTooltip {
   constructor() {
-    // 创建根容器
-    this.container = document.createElement('div');
-    this.container.id = 'hover-translate-root';
-    this.container.style.position = 'fixed';
-    this.container.style.zIndex = '2147483647'; // 最高层级
-    this.container.style.pointerEvents = 'none'; // 不阻止点击
-    document.body.appendChild(this.container);
-    
-    // 创建 Shadow DOM
-    this.shadow = this.container.attachShadow({ mode: 'closed' });
-    
-    // 创建样式
-    const style = document.createElement('style');
-    style.textContent = this.getStyleContent();
-    
-    // 创建 tooltip 元素
-    this.tooltip = document.createElement('div');
-    this.tooltip.className = 'tooltip';
-    this.tooltip.style.display = 'none';
-    
-    // 添加到 Shadow DOM
-    this.shadow.appendChild(style);
-    this.shadow.appendChild(this.tooltip);
-    
-    debugLog('Translation tooltip component initialized with Shadow DOM');
+    try {
+      // 清理可能存在的旧容器
+      const existingContainer = document.querySelector('#hover-translate-root');
+      if (existingContainer) {
+        debugLog('找到旧的tooltip容器，移除中...');
+        existingContainer.remove();
+      }
+      
+      // 创建根容器 - 使用普通DOM而非Shadow DOM
+      this.container = document.createElement('div');
+      this.container.id = 'hover-translate-root';
+      this.container.style.cssText = 'position:fixed; z-index:2147483647; display:block; visibility:visible; opacity:1; pointer-events:auto; top:0; left:0; width:100%; height:0;';
+      
+      // 创建样式
+      const style = document.createElement('style');
+      style.textContent = this.getStyleContent();
+      style.id = 'hover-translate-style';
+      
+      // 创建 tooltip 元素
+      this.tooltip = document.createElement('div');
+      this.tooltip.id = 'hover-translate-tooltip';
+      this.tooltip.className = 'hover-translate-tooltip';
+      this.tooltip.style.cssText = 'display:none; position:absolute; background-color:#fff; border:1px solid rgba(0,0,0,0.2); border-radius:6px; box-shadow:0 3px 12px rgba(0,0,0,0.15); color:#333; font-family:sans-serif; font-size:14px; line-height:1.4; min-width:200px; max-width:400px; padding:12px; overflow-y:auto; max-height:400px; pointer-events:auto; z-index:2147483647;';
+      
+      // 直接添加到document.body
+      try {
+        document.body.appendChild(style);
+        document.body.appendChild(this.container);
+        this.container.appendChild(this.tooltip);
+        debugLog('直接DOM模式: 样式和容器添加成功');
+      } catch (appendError) {
+        debugLog('添加DOM元素失败: ' + appendError.message, 'error');
+        console.error('添加DOM错误详情:', appendError);
+      }
+      
+      // 添加可见性指示器
+      const indicator = document.createElement('div');
+      indicator.style.cssText = 'position:absolute; width:5px; height:5px; background:red; top:0; right:0; z-index:2147483647;';
+      this.container.appendChild(indicator);
+      
+      debugLog('Translation tooltip component initialized with direct DOM (no Shadow DOM)');
+    } catch (error) {
+      debugLog('创建tooltip组件失败: ' + error.message, 'error');
+      console.error('错误详情:', error);
+    }
   }
   
   /**
@@ -63,7 +79,7 @@ class TranslationTooltip {
    */
   getStyleContent() {
     return `
-      .tooltip {
+      #hover-translate-tooltip {
         background-color: #fff;
         border: 1px solid rgba(0, 0, 0, 0.2);
         border-radius: 6px;
@@ -81,52 +97,100 @@ class TranslationTooltip {
         max-height: 400px;
         pointer-events: auto;
         transition: opacity 0.15s ease-in-out;
+        z-index: 2147483647;
       }
       
-      /* 自适应宽度相关样式 */
-      .tooltip.short-text {
+      #hover-translate-tooltip.short-text {
         width: auto;
         max-width: 280px;
       }
       
-      .tooltip.medium-text {
+      #hover-translate-tooltip.medium-text {
         width: auto;
         max-width: 340px;
       }
       
-      .tooltip.long-text {
+      #hover-translate-tooltip.long-text {
         width: auto;
         max-width: 400px;
       }
       
       /* 日语特有样式 */
-      .header {
+      #hover-translate-tooltip .header {
         display: flex;
         flex-direction: column;
         margin-bottom: 10px;
       }
       
-      .original {
+      #hover-translate-tooltip .original {
         font-weight: bold;
         margin-bottom: 4px;
       }
       
-      .pronunciation {
+      #hover-translate-tooltip .pronunciation {
         color: #666;
         font-size: 0.9em;
         font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif;
         margin-bottom: 6px;
       }
       
-      /* 其他样式省略，与之前相同 */
+      #hover-translate-tooltip .translation {
+        color: #2c7be5;
+        font-size: 1.05em;
+        margin-bottom: 12px;
+      }
       
+      #hover-translate-tooltip .definitions-header, 
+      #hover-translate-tooltip .examples-header {
+        font-weight: bold;
+        font-size: 0.9em;
+        margin-top: 12px;
+        margin-bottom: 6px;
+        border-top: 1px solid rgba(0,0,0,0.1);
+        padding-top: 8px;
+      }
+      
+      #hover-translate-tooltip .definition {
+        font-size: 0.9em;
+        margin-bottom: 4px;
+        line-height: 1.5;
+      }
+      
+      #hover-translate-tooltip .example {
+        margin-bottom: 10px;
+        padding-left: 8px;
+        border-left: 2px solid rgba(0,0,0,0.1);
+      }
+      
+      #hover-translate-tooltip .example-translation {
+        color: #2c7be5;
+      }
+      
+      /* 深色模式支持 */
       @media (prefers-color-scheme: dark) {
-        .tooltip {
+        #hover-translate-tooltip {
           background-color: #2d2d2d;
           color: #e8e8e8;
           border-color: rgba(255, 255, 255, 0.2);
         }
-        /* 其他深色模式样式 */
+        
+        #hover-translate-tooltip .pronunciation {
+          color: #aaa;
+        }
+        
+        #hover-translate-tooltip .translation, 
+        #hover-translate-tooltip .example-translation {
+          color: #5a9bf6;
+        }
+        
+        #hover-translate-tooltip .definitions-header, 
+        #hover-translate-tooltip .examples-header {
+          border-top-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        #hover-translate-tooltip .example {
+          border-left-color: rgba(255, 255, 255, 0.1);
+        }
       }
     `;
   }
@@ -137,59 +201,163 @@ class TranslationTooltip {
    * @param {HTMLElement} targetElement - 目标元素
    */
   show(translation, targetElement) {
-    const rect = targetElement.getBoundingClientRect();
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-    
-    // 设置内容
-    this.tooltip.innerHTML = this.formatTranslation(translation);
-    
-    // 根据文本长度应用不同的宽度类
-    const textLength = translation.original.length + (translation.translation?.length || 0);
-    this.tooltip.classList.remove('short-text', 'medium-text', 'long-text');
-    
-    if (textLength < 30) {
-      this.tooltip.classList.add('short-text');
-    } else if (textLength < 100) {
-      this.tooltip.classList.add('medium-text');
-    } else {
-      this.tooltip.classList.add('long-text');
+    try {
+      debugLog('显示翻译tooltip (原生DOM模式): ' + JSON.stringify(translation).substring(0, 100) + '...');
+      
+      const rect = targetElement.getBoundingClientRect();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+      
+      // 设置内容
+      this.tooltip.innerHTML = this.formatTranslation(translation);
+      
+      // 根据文本长度应用不同的宽度类
+      const textLength = (translation.original ? translation.original.length : 0) + 
+                         (translation.translation ? translation.translation.length : 0);
+      this.tooltip.classList.remove('short-text', 'medium-text', 'long-text');
+      
+      if (textLength < 30) {
+        this.tooltip.classList.add('short-text');
+      } else if (textLength < 100) {
+        this.tooltip.classList.add('medium-text');
+      } else {
+        this.tooltip.classList.add('long-text');
+      }
+      
+      // 强制设置样式
+      this.tooltip.style.cssText = `
+        position: absolute;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        top: ${(rect.bottom + scrollTop + 10)}px;
+        left: ${(rect.left + scrollLeft)}px;
+        background-color: #fff;
+        border: 1px solid rgba(0,0,0,0.2);
+        border-radius: 6px;
+        box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+        color: #333;
+        font-family: sans-serif;
+        font-size: 14px;
+        line-height: 1.4;
+        padding: 12px;
+        max-width: 400px;
+        overflow-y: auto;
+        max-height: 400px;
+        pointer-events: auto;
+        z-index: 2147483647;
+      `;
+      
+      // 防止超出屏幕
+      setTimeout(() => this.adjustPosition(rect), 10);
+      
+      // 确保完全可见
+      this.container.style.display = 'block';
+      this.container.style.pointerEvents = 'auto';
+      
+      // 强制重新计算布局
+      void this.container.offsetHeight;
+      void this.tooltip.offsetHeight;
+      
+      // 测试标记 - 显示边角红点
+      const marker = document.createElement('div');
+      marker.style.cssText = 'position:absolute; right:0; top:0; width:8px; height:8px; background:red; border-radius:50%;';
+      this.tooltip.appendChild(marker);
+      
+      debugLog('原生DOM模式: Tooltip显示成功 位置: top=' + this.tooltip.style.top + ', left=' + this.tooltip.style.left + 
+              ', 尺寸: ' + this.tooltip.offsetWidth + 'x' + this.tooltip.offsetHeight);
+    } catch (error) {
+      debugLog('显示tooltip失败: ' + error.message, 'error');
+      console.error('显示错误详情:', error);
     }
-    
-    // 设置位置
-    this.tooltip.style.top = (rect.bottom + scrollTop + 10) + 'px';
-    this.tooltip.style.left = (rect.right + scrollLeft + 5) + 'px';
-    this.tooltip.style.display = 'block';
-    
-    // 防止超出屏幕
-    setTimeout(() => this.adjustPosition(), 0);
-    
-    // 允许tooltip内的交互
-    this.container.style.pointerEvents = 'auto';
-    
-    debugLog('Tooltip displayed at', this.tooltip.style.top, this.tooltip.style.left);
   }
   
   /**
    * 隐藏tooltip
    */
   hide() {
-    this.tooltip.style.display = 'none';
-    this.container.style.pointerEvents = 'none';
+    try {
+      this.tooltip.style.display = 'none';
+      this.container.style.pointerEvents = 'none';
+      
+      // 清除内容以减少内存占用
+      this.tooltip.innerHTML = '';
+      
+      debugLog('原生DOM模式: Tooltip已隐藏');
+    } catch (error) {
+      debugLog('隐藏tooltip失败: ' + error.message, 'error');
+    }
   }
   
   /**
    * 调整位置避免超出屏幕
+   * @param {DOMRect} targetRect - 目标元素的位置矩形
    */
-  adjustPosition() {
-    const rect = this.tooltip.getBoundingClientRect();
-    
-    if (rect.right > window.innerWidth) {
-      this.tooltip.style.left = (window.innerWidth - rect.width - 10) + 'px';
+  adjustPosition(targetRect) {
+    try {
+      const rect = this.tooltip.getBoundingClientRect();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+      
+      // 检查右侧溢出
+      if (rect.right > window.innerWidth) {
+        this.tooltip.style.left = (window.innerWidth - rect.width - 10) + 'px';
+      }
+      
+      // 检查底部溢出
+      if (rect.bottom > window.innerHeight) {
+        // 尝试显示在目标元素上方
+        const topPosition = targetRect.top + scrollTop - rect.height - 10;
+        
+        // 如果上方也放不下，放在可视区域底部
+        if (topPosition < scrollTop) {
+          this.tooltip.style.top = (window.innerHeight + scrollTop - rect.height - 10) + 'px';
+        } else {
+          this.tooltip.style.top = topPosition + 'px';
+        }
+      }
+      
+      // 添加额外处理：确保在Twitter等网站上可见
+      this.ensureVisible();
+      
+      debugLog('原生DOM模式: 调整后位置: top=' + this.tooltip.style.top + ', left=' + this.tooltip.style.left);
+    } catch (error) {
+      debugLog('调整tooltip位置失败: ' + error.message, 'error');
     }
-    
-    if (rect.bottom > window.innerHeight) {
-      this.tooltip.style.top = (window.innerHeight - rect.height - 10) + 'px';
+  }
+  
+  /**
+   * 确保在受限网站上可见的特殊处理
+   */
+  ensureVisible() {
+    try {
+      // 针对Twitter等网站的特殊处理
+      // if (window.location.hostname.includes('twitter.com') || window.location.hostname.includes('x.com')) {
+      //   debugLog('检测到Twitter/X网站，应用特殊处理');
+        
+      // 移除并重新添加到DOM树顶层
+      if (this.tooltip.parentNode) {
+        this.tooltip.parentNode.removeChild(this.tooltip);
+      }
+      
+      document.body.appendChild(this.tooltip);
+      
+      // 尝试修复样式被覆盖问题
+      const currentStyles = window.getComputedStyle(this.tooltip);
+      if (currentStyles.display === 'none' || currentStyles.visibility === 'hidden' || currentStyles.opacity === '0') {
+        debugLog('检测到样式被覆盖，强制应用内联样式');
+        
+        // 设置强制可见样式
+        this.tooltip.style.cssText += '; display: block !important; visibility: visible !important; opacity: 1 !important; z-index: 2147483647 !important;';
+        
+        // 添加强制动画效果来重新触发渲染
+        this.tooltip.style.animation = 'none';
+        void this.tooltip.offsetHeight; // 触发重绘
+        this.tooltip.style.animation = null;
+      }
+      // }
+    } catch (error) {
+      debugLog('确保可见性处理失败: ' + error.message, 'error');
     }
   }
   
@@ -281,18 +449,37 @@ class TranslationTooltip {
   }
 }
 
-// 替换现有tooltip创建代码
-// const tooltip = document.createElement('div');
-// tooltip.id = 'hover-translate-tooltip';
-// tooltip.style.display = 'none';
-// document.body.appendChild(tooltip);
-const translationTooltip = new TranslationTooltip();
-debugLog('Translation tooltip component created using Shadow DOM');
-
 // 替换showTooltip函数
 function showTooltip(translation, targetElement) {
-  translationTooltip.show(translation, targetElement);
-  tooltipVisible = true;
+  try {
+    debugLog('调用showTooltip - 开始显示提示框', 'info');
+    
+    // 检查参数
+    if (!translation) {
+      debugLog('无效的translation参数', 'error');
+      return;
+    }
+    
+    if (!targetElement || !targetElement.getBoundingClientRect) {
+      debugLog('无效的targetElement参数', 'error');
+      return;
+    }
+    
+    // 确保translationTooltip存在
+    if (!translationTooltip) {
+      debugLog('translationTooltip未初始化，尝试重新创建', 'warn');
+      translationTooltip = new TranslationTooltip();
+    }
+    
+    // 显示tooltip
+    translationTooltip.show(translation, targetElement);
+    tooltipVisible = true;
+    
+    debugLog('showTooltip调用完成', 'info');
+  } catch (error) {
+    debugLog('showTooltip异常: ' + error.message, 'error');
+    console.error('完整错误信息：', error);
+  }
 }
 
 // 替换hideTooltip函数
@@ -311,29 +498,6 @@ function hideTooltip() {
   
   debugLog('工具提示已隐藏');
 }
-
-/**
- * 全局状态变量
- * 用于跟踪插件的运行状态和用户配置
- * 
- * selectedText: 当前选中的文本
- * hoverTimer: 悬停计时器引用，用于处理延迟触发
- * tooltipVisible: 当前提示框是否可见
- * settings: 用户配置，从chrome.storage读取并缓存
- */
-let selectedText = '';
-let hoverTimer = null;
-let tooltipVisible = false;
-let settings = {
-  enabled: true,              // 插件是否启用
-  hoverDelay: 500,            // 悬停触发延迟(毫秒)
-  showPronunciation: true,    // 是否显示发音
-  showExamples: true,         // 是否显示例句
-  languageMode: 'ja',         // 翻译模式：ja(日语)|en(英语)|all(所有)
-  jaOnly: true,               // 是否仅翻译日语(兼容旧版)
-  enOnly: false,              // 是否仅翻译英语(兼容旧版)
-  debugMode: false            // 调试模式
-};
 
 /**
  * 加载用户设置
@@ -363,97 +527,7 @@ function loadSettings() {
   });
 }
 
-// 内容脚本初始化时加载设置
-loadSettings();
 
-/**
- * 监听设置变化
- * 当storage发生变化时自动更新本地设置
- * 由chrome.storage.onChanged事件触发
- */
-chrome.storage.onChanged.addListener((changes) => {
-  let hasChanges = false;
-  
-  for (let key in changes) {
-    if (key in settings) {
-      const oldValue = settings[key];
-      const newValue = changes[key].newValue;
-      
-      settings[key] = newValue;
-      hasChanges = true;
-      
-      debugLog(`设置已更新[${key}]: ${oldValue} -> ${newValue}`);
-    }
-  }
-  
-  if (hasChanges) {
-    debugLog('设置已更新，当前设置: ' + JSON.stringify(settings));
-  }
-});
-
-/**
- * 添加页面事件监听器
- * 在内容脚本初始化时添加，处理鼠标悬停、离开和点击事件
- */
-document.addEventListener('mouseover', handleMouseOver);
-document.addEventListener('mouseout', handleMouseOut);
-document.addEventListener('click', handleClick);
-debugLog('Event listeners added');
-
-/**
- * 测试函数 - 验证扩展是否正常工作
- * 在内容脚本加载后2秒显示一个临时通知，3秒后自动消失
- * 用于向用户提供插件活动状态的视觉反馈
- */
-setTimeout(() => {
-  debugLog('Adding test notification');
-  const testDiv = document.createElement('div');
-  testDiv.style.position = 'fixed';
-  testDiv.style.top = '10px';
-  testDiv.style.right = '10px';
-  testDiv.style.backgroundColor = 'rgba(0, 123, 255, 0.8)';
-  testDiv.style.color = 'white';
-  testDiv.style.padding = '5px 10px';
-  testDiv.style.borderRadius = '4px';
-  testDiv.style.zIndex = '9999999';
-  testDiv.style.fontSize = '12px';
-  testDiv.textContent = 'Hover Translate activated';
-  document.body.appendChild(testDiv);
-  
-  setTimeout(() => {
-    testDiv.remove();
-  }, 3000);
-}, 2000);
-
-/**
- * 全局状态变量 - 鼠标和悬停相关
- * 用于跟踪鼠标位置和悬停状态
- * 
- * lastHoveredElement: 上次悬停的元素
- * lastMouseX/Y: 上次记录的鼠标坐标
- * isExtracting: 是否正在提取文本(防止重复处理)
- * lastExtractedRange: 上次提取的文本范围
- * hoverStartTime: 当前悬停开始时间
- * mouseMoveCount: 悬停期间鼠标移动次数
- * isHovering: 是否处于悬停状态
- */
-let lastHoveredElement = null;
-let lastMouseX = 0;
-let lastMouseY = 0;
-let isExtracting = false;
-let lastExtractedRange = null;
-let hoverStartTime = 0;
-let mouseMoveCount = 0;
-let isHovering = false;
-
-/**
- * 性能优化常量
- * 
- * HOVER_DELAY_SHORT: 活跃模式下的短悬停延迟
- * isActiveMode: 用户是否处于活跃翻译模式
- */
-const HOVER_DELAY_SHORT = 200;
-let isActiveMode = false;
 
 /**
  * 处理鼠标悬停事件
@@ -469,11 +543,15 @@ function handleMouseOver(event) {
     return;
   }
   
+  // 在iframe中不处理悬停事件，由主文档控制
+  if (isInIframe) {
+    return;
+  }
+  
   const element = event.target;
   const mouseX = event.clientX;
   const mouseY = event.clientY;
 
-  
   // 清除现有计时器，避免重复触发
   clearTimeout(hoverTimer);
   
@@ -489,16 +567,30 @@ function handleMouseOver(event) {
   lastMouseY = mouseY;
   
   // 鼠标移动明显或目标元素变化时，重置悬停状态
-  if (distanceMoved > 5 || !isSameElement) {
+  if (distanceMoved > 8 || !isSameElement) {
+    // 重置提取状态
+    isExtracting = false;
+
     // 如果当前有提示显示，隐藏它
     if (tooltipVisible) {
       hideTooltip();
     }
     
+    // 取消所有進行中的API請求
+    cancelPendingRequests();
+    
     // 重置悬停状态
     hoverStartTime = Date.now();
     mouseMoveCount = 0;
     isHovering = true;
+    
+    // 检查元素是否为iframe
+    if (element.tagName === 'IFRAME') {
+      lastHoveredIframe = element;
+      debugLog(`悬停在iframe上: ${element.src ? element.src.substring(0, 50) : '无src属性'}`);
+    } else {
+      lastHoveredIframe = null;
+    }
     
     debugLog(`开始新的悬停 - 元素: ${element.nodeName}, 位置: (${mouseX}, ${mouseY})`);
   } else {
@@ -521,7 +613,7 @@ function handleMouseOver(event) {
       hoverDuration >= settings.hoverDelay && 
       isHovering && 
       !isExtracting && 
-      mouseMoveCount < 10  // 鼠标移动次数阈值
+      mouseMoveCount < 15  // 鼠标移动次数阈值
     ) {
       debugLog(`悬停条件满足 - 持续时间: ${hoverDuration}ms, 移动计数: ${mouseMoveCount}`);
       
@@ -531,9 +623,18 @@ function handleMouseOver(event) {
         Math.pow(event.clientY - mouseY, 2)
       );
       
-      if (currentDistance < 10) {  // 10像素的容差
-        // 启动文本提取和翻译
-        startExtraction(element, mouseX, mouseY);
+      if (currentDistance < 10) {  // 15像素的容差
+        // 检查是否为iframe
+        if (element.tagName === 'IFRAME') {
+          try {
+            handleIframeHover(element, mouseX, mouseY);
+          } catch (error) {
+            debugLog('处理iframe悬停失败: ' + error.message, 'error');
+          }
+        } else {
+          // 标准元素处理：启动文本提取和翻译
+          triggerTextExtraction(element, mouseX, mouseY);
+        }
       } else {
         debugLog('鼠标已经移动太远，取消提取');
         isHovering = false;
@@ -545,34 +646,130 @@ function handleMouseOver(event) {
 }
 
 /**
- * 启动文本提取和翻译
- * 由handleMouseOver中的计时器调用
- * 提取鼠标位置处的文本并发送翻译请求
- * 
- * @param {HTMLElement} element - 目标DOM元素
+ * 处理iframe元素的悬停
+ * @param {HTMLIFrameElement} iframe - iframe元素
  * @param {number} mouseX - 鼠标X坐标
  * @param {number} mouseY - 鼠标Y坐标
  */
-async function startExtraction(element, mouseX, mouseY) {
+function handleIframeHover(iframe, mouseX, mouseY) {
+  // 防止重复处理
+  if (isExtracting) {
+    debugLog('已有提取任务正在进行，跳过iframe处理');
+    return;
+  }
+  
   isExtracting = true;
+  debugLog('处理iframe内容...');
   
   try {
-    // 提取文本 - 调用extractDOMText函数
-    const text = await extractDOMText(element, mouseX, mouseY);
+    // 获取iframe相对于视口的位置
+    const rect = iframe.getBoundingClientRect();
     
-    if (text && text.trim().length > 0) {
-      debugLog(`提取到文本: "${text.substring(0, 30)}${text.length > 30 ? '...' : ''}"`);
-      translateText(text, element);
-    } else {
-      debugLog('未能提取到有效文本');
-      hideTooltip();
+    // 计算鼠标在iframe内的相对坐标
+    const iframeX = mouseX - rect.left;
+    const iframeY = mouseY - rect.top;
+    
+    // 生成唯一标识符
+    const frameId = 'frame_' + Date.now();
+    
+    // 尝试向iframe发送消息
+    iframe.contentWindow.postMessage({
+      type: 'hoverTranslate:extract-text',
+      x: iframeX,
+      y: iframeY,
+      frameId
+    }, '*');
+    
+    // 设置超时处理
+    setTimeout(() => {
+      if (isExtracting) {
+        debugLog('iframe未响应，取消提取', 'warn');
+        isExtracting = false;
+      }
+    }, 1000);
+    
+  } catch (error) {
+    debugLog('iframe通信错误: ' + error.message, 'error');
+    // 处理跨域iframe的情况：直接使用iframe元素作为目标
+    if (error.name === 'SecurityError' || error.name === 'DOMException') {
+      debugLog('检测到跨域iframe，使用备用处理方法');
+      
+      // 创建一个模拟结果，表明这是跨域iframe
+      const fallbackText = '(无法访问跨域iframe内容)';
+      translateText(fallbackText, iframe);
     }
-  } catch (e) {
-    debugLog(`文本提取错误: ${e.message}`, 'error');
-    hideTooltip();
-  } finally {
+    
     isExtracting = false;
-    isHovering = false;  // 重置悬停状态
+  }
+}
+
+/**
+ * 触发文本提取
+ * 由handleMouseOver调用
+ * 提取鼠标位置的文本并进行翻译
+ * 
+ * @param {HTMLElement} element - 鼠标悬停的元素
+ * @param {number} mouseX - 鼠标X坐标 
+ * @param {number} mouseY - 鼠标Y坐标 
+ */
+function triggerTextExtraction(element, mouseX, mouseY) {
+  try {
+    // 防止重复提取
+    if (isExtracting) {
+      debugLog('已有提取任务正在进行，跳过');
+      return;
+    }
+    
+    // 记录开始时间，用于计算处理时间
+    const startTime = Date.now();
+    
+    // 设置状态标志
+    isExtracting = true;
+    isHovering = true;
+    debugLog(`开始文本提取, 目标元素: ${element.tagName}, 坐标: (${mouseX}, ${mouseY})`);
+    
+    // 提取文本并翻译
+    try {
+      const result = extractDOMText(element, mouseX, mouseY);
+      if (result) {
+        // 计算提取耗时
+        const extractTime = Date.now() - startTime;
+        debugLog(`提取文本成功: "${result.substring(0, 50)}${result.length > 50 ? '...' : ''}" (耗时:${extractTime}ms)`);
+        
+        // 如果鼠标已经移动到其他位置，取消后续处理
+        if (Math.abs(mouseX - lastMouseX) > 15 || Math.abs(mouseY - lastMouseY) > 15) {
+          debugLog('鼠标已移动到新位置，取消翻译', 'warn');
+          isExtracting = false;
+          isHovering = false;
+          return;
+        }
+        
+        // 检查是否仍然需要翻译
+        if (!isHovering) {
+          debugLog('悬停状态已结束，取消翻译', 'warn');
+          isExtracting = false;
+          return;
+        }
+        
+        // 发送翻译请求
+        translateText(result, element);
+      } else {
+        debugLog('没有找到可翻译的文本', 'warn');
+        isExtracting = false;
+        isHovering = false;
+      }
+    } catch (error) {
+      debugLog('文本提取失败: ' + error.message, 'error');
+      console.error('提取错误详情:', error);
+      isExtracting = false;
+      isHovering = false;
+    }
+  } catch (error) {
+    debugLog('触发文本提取过程中发生错误: ' + error.message, 'error');
+    console.error('触发错误详情:', error);
+    // 确保无论如何都重置状态
+    isExtracting = false;
+    isHovering = false;
   }
 }
 
@@ -584,31 +781,54 @@ async function startExtraction(element, mouseX, mouseY) {
  * @param {MouseEvent} event - 鼠标事件对象
  */
 function handleMouseOut(event) {
-  // 获取鼠标移动到的元素
-  const relatedTarget = event.relatedTarget;
+  // 禁用时直接返回
+  if (!settings.enabled) return;
   
-  // 清除悬停计时器
+  // 重置悬停状态
+  isHovering = false;
+  
+  // 清除延时器
   clearTimeout(hoverTimer);
   
-  // 如果鼠标移到工具提示上，不处理
-  if (relatedTarget && translationTooltip.container.contains(relatedTarget)) {
+  // 清除高亮
+  if (highlighter) {
+    highlighter.clear();
+    debugLog('鼠标离开元素，清除高亮');
+  }
+  
+  // 只有在提示框未显示或提示框包含鼠标离开的元素时才清理
+  // 这样如果鼠标从原始元素移动到提示框不会取消
+  if (!tooltipVisible || !translationTooltip.container ||
+      (event.relatedTarget && translationTooltip.container.contains(event.relatedTarget))
+  ) {
     return;
   }
   
   // 标记悬停已结束
   isHovering = false;
   
+  // 取消進行中的請求 (无论是否显示提示框都要取消)
+  if (isExtracting) {
+    debugLog('鼠标离开元素，取消进行中的请求');
+    cancelPendingRequests();
+  }
+  
   // 如果没有显示工具提示，不需要处理
-  if (!tooltipVisible) return;
+  if (!tooltipVisible) {
+    return;
+  }
   
   // 小延迟确认鼠标真的离开了
   // 防止鼠标在元素边缘快速移动时提示框闪烁
   setTimeout(() => {
     // 检查鼠标是否仍在原元素或工具提示上
-    const isOnTooltip = translationTooltip.container.matches(':hover');
+    const isOnTooltip = translationTooltip && translationTooltip.container && 
+                        translationTooltip.container.matches(':hover');
     const isStillOnElement = lastHoveredElement && lastHoveredElement.matches(':hover');
     
     if (!isOnTooltip && !isStillOnElement) {
+      // 鼠标确实已经离开，取消所有请求并隐藏提示
+      cancelPendingRequests();
       hideTooltip();
     }
   }, 200);
@@ -706,7 +926,30 @@ function translateText(text, targetElement) {
   const sourceLanguage = detectLanguage(truncatedText);
   debugLog(`检测源语言: ${sourceLanguage}, 文本: "${truncatedText.substring(0, 20)}..."`);
   
+  // 跳过不需要翻译的语言
+  if (sourceLanguage === 'skip') {
+    debugLog('根据语言设置跳过翻译');
+    isExtracting = false;
+    return;
+  }
+  
   try {
+    // 生成唯一请求ID，用于跟踪
+    const requestId = Date.now().toString();
+    window._pendingRequests = window._pendingRequests || {};
+    window._pendingRequests[requestId] = true;
+    
+    // 记录当前鼠标位置和时间戳，用于后续检查
+    const mouseX = lastMouseX;
+    const mouseY = lastMouseY;
+    const requestTime = Date.now();
+    
+    // 清除之前的取消标志
+    window._translationCancelled = false;
+    window._translationCancelTime = 0;
+
+    debugLog(`发送翻译请求(ID:${requestId}): ${truncatedText.substring(0, 30)}...`);
+    
     // 发送消息到后台脚本进行翻译，添加源语言信息
     // background.js中的chrome.runtime.onMessage监听器处理该请求
     chrome.runtime.sendMessage(
@@ -714,29 +957,65 @@ function translateText(text, targetElement) {
         action: 'translate', 
         text: truncatedText,
         sourceLanguage: sourceLanguage,
-        requireDetails: true // 请求详细信息
+        requireDetails: true, // 请求详细信息
+        requestId: requestId  // 添加请求ID用于跟踪
       },
       (response) => {
+        // 检查请求是否已被取消
+        // if (window._pendingRequests.cancelled || !window._pendingRequests[requestId]) {
+        //   debugLog(`忽略已取消的翻译请求(ID:${requestId})响应`, 'warn');
+        //   isExtracting = false;
+        //   return;
+        // }
+        
+        // 检查全局取消标志
+        if (window._translationCancelled && window._translationCancelTime > requestTime) {
+          debugLog(`全局取消标志已设置，忽略响应(ID:${requestId})`, 'warn');
+          isExtracting = false;
+          return;
+        }
+        
+        // 检查请求发送后用户是否已经移动鼠标
+        if (Math.abs(lastMouseX - mouseX) > 15 || Math.abs(lastMouseY - mouseY) > 15) {
+          debugLog(`鼠标已移动，忽略翻译响应(ID:${requestId})`, 'warn');
+          isExtracting = false;
+          return;
+        }
+        
+        // 检查请求发送后是否已经不在悬停状态
+        if (!isHovering) {
+          debugLog(`已不在悬停状态，忽略翻译响应(ID:${requestId})`, 'warn');
+          isExtracting = false;
+          return;
+        }
+        
+        // 删除已完成的请求记录
+        delete window._pendingRequests[requestId];
+        
         // 检查是否有错误
         if (chrome.runtime.lastError) {
           debugLog('发送消息错误: ' + chrome.runtime.lastError.message, 'error');
           showFallbackTranslation(truncatedText, targetElement, sourceLanguage);
+          isExtracting = false;
           return;
         }
         
         // 显示翻译结果
         if (response && !response.error) {
-          debugLog('收到翻译响应');
+          debugLog(`收到翻译响应(ID:${requestId})`);
           showTooltip(response, targetElement);
+          isExtracting = false;
         } else {
           debugLog('翻译错误: ' + (response ? response.error : '无响应'), 'error');
           showFallbackTranslation(truncatedText, targetElement, sourceLanguage);
+          isExtracting = false;
         }
       }
     );
   } catch (error) {
     debugLog('sendMessage异常: ' + error.message, 'error');
     showFallbackTranslation(truncatedText, targetElement, sourceLanguage);
+    isExtracting = false;
   }
 }
 
@@ -837,361 +1116,254 @@ function setupDOMObserver() {
 }
 
 // 在文档加载完成后设置DOM观察器
-const domObserver = setupDOMObserver();
+// const domObserver = setupDOMObserver();
 
 /**
- * 扩展extractDOMText函数，添加用于处理动态内容的增强功能
- * 
- * @param {HTMLElement} element - 鼠标悬停的目标元素
- * @param {number} cursorX - 鼠标X坐标(相对于视口)
- * @param {number} cursorY - 鼠标Y坐标(相对于视口)
- * @returns {Promise<string>} - 提取的文本内容
+ * 提取DOM文本 - 改进版，模仿10ten-ja-reader的实现
+ * @param {HTMLElement} element - 鼠标悬停的元素
+ * @param {number} cursorX - 鼠标X坐标
+ * @param {number} cursorY - 鼠标Y坐标
+ * @returns {Promise<string>} - 提取的文本
  */
-async function extractDOMText(element, cursorX, cursorY) {
+function extractDOMText(element, cursorX, cursorY) {
   // 清除现有高亮
   if (highlighter) {
     highlighter.clear();
-  } else {
-    debugLog('警告: Highlighter对象不存在', 'warn');
   }
   
-  debugLog('尝试精确定位文本...');
+  debugLog('精确提取文本中...');
   
-  let textNode = null;
-  let offset = 0;
+  // 缓存上次结果，避免不必要的处理
+  let cache = window._extractTextCache;
+  if (cache) {
+    const dx = cache.point.x - cursorX;
+    const dy = cache.point.y - cursorY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    // 如果鼠标位置相近(4px内)，直接返回缓存的结果
+    if (dist < 4 && cache.result) {
+      debugLog('使用缓存的文本结果');
+      
+      // 如果有保存范围信息且highlighter可用，恢复高亮
+      if (cache.range && highlighter) {
+        highlighter.highlightRange(cache.range);
+      }
+      
+      return cache.result.text;
+    }
+  }
   
   try {
-    // 尝试使用更高级的IntersectionObserver API确认元素可见性
-    const isVisible = (element) => {
-      if (!element) return false;
-      const style = window.getComputedStyle(element);
-      return style.display !== 'none' && 
-             style.visibility !== 'hidden' && 
-             style.opacity !== '0' &&
-             element.offsetWidth > 0 && 
-             element.offsetHeight > 0;
-    };
+    // 第一步：获取位置下的所有元素(删除重复)
+    const elements = [...new Set(document.elementsFromPoint(cursorX, cursorY))];
     
-    // 方法1: 使用caretPositionFromPoint (现代浏览器标准API)
-    if (document.caretPositionFromPoint) {
-      const position = document.caretPositionFromPoint(cursorX, cursorY);
-      if (position && position.offsetNode && position.offsetNode.nodeType === Node.TEXT_NODE) {
-        textNode = position.offsetNode;
-        offset = position.offset;
-        debugLog('使用caretPositionFromPoint获取文本节点成功');
-      }
+    // 跳过tooltip本身
+    const filteredElements = elements.filter(el => {
+      return el !== translationTooltip.container && 
+             !translationTooltip.container.contains(el);
+    });
+    
+    if (filteredElements.length === 0) {
+      debugLog('没有找到有效元素');
+      return null;
     }
     
-    // 方法2: 替代已弃用的caretRangeFromPoint
-    if (!textNode) {
-      try {
-        // 递归查找最小文本单位
-        const findSmallestTextNode = (element) => {
-          // 如果是文本节点且非空，直接返回
-          if (element.nodeType === Node.TEXT_NODE && element.textContent.trim()) {
-            return element;
-          }
-          
-          // 如果是元素节点，递归查找子节点
-          if (element.nodeType === Node.ELEMENT_NODE) {
-            // 优先查找鼠标直接指向的子元素
-            const pointedElements = document.elementsFromPoint(cursorX, cursorY);
-            for (const pointedEl of pointedElements) {
-              if (element.contains(pointedEl) && pointedEl !== element) {
-                const found = findSmallestTextNode(pointedEl);
-                if (found) return found;
-              }
-            }
-            
-            // 遍历所有子节点
-            for (const child of element.childNodes) {
-              // 优先处理文本节点
-              if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
-                return child;
-              }
-            }
-            
-            // 处理元素子节点
-            for (const child of element.childNodes) {
-              if (child.nodeType === Node.ELEMENT_NODE) {
-                const found = findSmallestTextNode(child);
-                if (found) return found;
-              }
-            }
-          }
-          
-          return null;
-        };
-        
-        // 从鼠标位置获取元素并找到最小文本节点
-        const elements = document.elementsFromPoint(cursorX, cursorY);
-        for (const el of elements) {
-          // 跳过提示框本身
-          if (el === translationTooltip.container || translationTooltip.container.contains(el)) {
-            continue;
-          }
-          
-          const smallestNode = findSmallestTextNode(el);
-          if (smallestNode) {
-            textNode = smallestNode;
-            offset = Math.floor(smallestNode.textContent.length / 2);
-            debugLog('使用递归方法找到最小文本节点: ' + smallestNode.textContent.substring(0, 20));
-            break;
-          }
-        }
-      } catch (e) {
-        debugLog('递归查找文本节点失败: ' + e.message, 'warn');
-      }
-    }
+    // 第二步：获取文本节点和偏移量
+    const position = getCursorPosition(cursorX, cursorY, filteredElements);
     
-    // 添加处理动态内容的额外检查
-    if (!textNode) {
-      debugLog('尝试使用额外方法定位动态内容');
+    if (position && position.offsetNode && 
+        position.offsetNode.nodeType === Node.TEXT_NODE) {
+      const textNode = position.offsetNode;
+      const offset = position.offset;
       
-      // 查找光标附近的可见元素
-      const visibleElements = [];
-      const elements = document.elementsFromPoint(cursorX, cursorY);
+      debugLog(`找到文本节点，偏移量: ${offset}, 内容: ${textNode.textContent.substring(0, 20)}...`);
       
-      for (const el of elements) {
-        if (el === translationTooltip.container || translationTooltip.container.contains(el)) continue;
-        
-        if (isVisible(el)) {
-          visibleElements.push(el);
-          
-          // 对于可能的动态内容容器，深入检查
-          if (el.getAttribute('data-dynamic') || // 自定义标记
-              el.classList.contains('dynamic') ||
-              el.style.overflow === 'auto' || 
-              el.style.overflow === 'scroll') {
-            
-            debugLog('发现可能的动态内容容器: ' + el.nodeName);
-            
-            // 探测可能被深埋的文本节点
-            const allTextNodes = [];
-            const walker = document.createTreeWalker(
-              el, 
-              NodeFilter.SHOW_TEXT, 
-              { acceptNode: (node) => node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT }
-            );
-            
-            while (walker.nextNode()) {
-              allTextNodes.push(walker.currentNode);
-            }
-            
-            if (allTextNodes.length > 0) {
-              debugLog(`在动态容器中找到 ${allTextNodes.length} 个文本节点`);
-              
-              // 尝试找到光标下最近的文本节点
-              let bestNode = null;
-              let minDistance = Number.MAX_VALUE;
-              
-              for (const node of allTextNodes) {
-                try {
-                  const range = document.createRange();
-                  range.selectNodeContents(node);
-                  const rects = range.getClientRects();
-                  
-                  if (rects.length === 0) continue;
-                  
-                  // 找到最近的矩形
-                  for (let i = 0; i < rects.length; i++) {
-                    const rect = rects[i];
-                    // 计算光标到矩形中心的距离
-                    const centerX = rect.left + rect.width / 2;
-                    const centerY = rect.top + rect.height / 2;
-                    const distance = Math.sqrt(
-                      Math.pow(cursorX - centerX, 2) + 
-                      Math.pow(cursorY - centerY, 2)
-                    );
-                    
-                    // 如果在矩形内或很近，优先选择
-                    if (cursorX >= rect.left && cursorX <= rect.right &&
-                        cursorY >= rect.top && cursorY <= rect.bottom) {
-                      bestNode = node;
-                      minDistance = 0; // 最高优先级
-                      break;
-                    }
-                    
-                    if (distance < minDistance) {
-                      minDistance = distance;
-                      bestNode = node;
-                    }
-                  }
-                  
-                  if (minDistance === 0) break; // 已找到最佳匹配
-                } catch (e) {
-                  // 忽略错误，继续检查下一个节点
-                }
-              }
-              
-              if (bestNode) {
-                textNode = bestNode;
-                offset = Math.floor(bestNode.textContent.length / 2);
-                debugLog('从动态内容中找到文本节点: ' + bestNode.textContent.substring(0, 20));
-              }
-            }
-          }
-        }
-        
-        if (textNode) break;
-      }
-    }
-    
-    // 如果找到文本节点，创建范围并扩展
-    if (textNode) {
+      // 创建范围并扩展选择
       const range = document.createRange();
       range.setStart(textNode, offset);
       range.setEnd(textNode, offset);
       
-      debugLog(`初始光标位置: 文本节点长度${textNode.textContent.length}, 偏移量${offset}`);
+      // 扩展选择范围
+      expandSelectionByLanguage(range);
       
-      // 使用改进的文本扩展函数根据语言特性扩展选择范围
-      expandTextSelection(range);
+      const selectedText = range.toString().trim();
       
-      const word = range.toString().trim();
-      
-      if (word) {
-        // 保存当前提取的范围用于后续处理
-        lastExtractedRange = {
-          text: word,
-          node: textNode,
-          start: range.startOffset,
-          end: range.endOffset
-        };
-        
+      if (selectedText) {
         // 高亮选中的文本
         if (highlighter) {
           highlighter.highlightRange(range);
-          debugLog('已高亮选中文本');
-        } else {
-          debugLog('无法高亮：highlighter对象不存在', 'warn');
         }
         
-        debugLog(`最终提取文本: "${word}"`);
-        return word;
+        // 缓存结果
+        window._extractTextCache = {
+          point: { x: cursorX, y: cursorY },
+          position,
+          range,
+          result: { text: selectedText, textRange: range }
+        };
+        
+        debugLog(`提取文本成功: "${selectedText.substring(0, 30)}${selectedText.length > 30 ? '...' : ''}"`);
+        return selectedText;
       }
     }
-  } catch (e) {
-    debugLog(`精确文本提取失败: ${e.message}`, 'error');
+    
+    // 第三步：如果没有找到文本节点，尝试从元素获取文本
+    for (const elem of filteredElements) {
+      const text = getTextFromRandomElement(elem);
+      if (text) {
+        // 缓存结果
+        window._extractTextCache = {
+          point: { x: cursorX, y: cursorY },
+          position: null,
+          range: null,
+          result: { text, textRange: null }
+        };
+        
+        debugLog(`从元素属性获取文本: "${text.substring(0, 30)}${text.length > 30 ? '...' : ''}"`);
+        return text;
+      }
+    }
+    
+    // 如果未找到文本但位置相近，使用上次结果
+    if (cache) {
+      const dx = cache.point.x - cursorX;
+      const dy = cache.point.y - cursorY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < 10 && cache.result) {
+        debugLog('鼠标位置接近，复用上次结果');
+        return cache.result.text;
+      }
+    }
+    
+  } catch (error) {
+    debugLog(`文本提取错误: ${error.message}`, 'error');
   }
   
-  // 备用方案：返回元素的简短文本
-  const fallbackText = element.textContent?.trim().substring(0, 50) || '';
-  if (fallbackText) {
-    debugLog(`使用备用文本: "${fallbackText.substring(0, 20)}..."`);
-  }
-  return fallbackText;
+  // 重置缓存
+  window._extractTextCache = undefined;
+  
+  // 备用：使用元素内容
+  return element.textContent?.trim().substring(0, 100) || '';
 }
 
 /**
- * 文本选择范围扩展函数
- * 由extractDOMText调用，根据文本语言特性智能扩展选择范围
- * 针对日语和拉丁文脚本使用不同的边界识别算法
- * 
- * @param {Range} range - DOM范围对象，将被修改为扩展后的范围
+ * 获取光标位置信息
+ * @param {number} x - 鼠标X坐标
+ * @param {number} y - 鼠标Y坐标
+ * @param {Element[]} elements - 光标位置处的元素数组
+ * @returns {Object|null} 包含offsetNode和offset的对象，或null
  */
-function expandTextSelection(range) {
-  if (!range || !range.startContainer || range.startContainer.nodeType !== Node.TEXT_NODE) return;
+function getCursorPosition(x, y, elements) {
+  // 首先尝试标准API: caretPositionFromPoint
+  if (document.caretPositionFromPoint) {
+    const position = document.caretPositionFromPoint(x, y);
+    if (position && position.offsetNode && 
+        position.offsetNode.nodeType === Node.TEXT_NODE) {
+      return position;
+    }
+  }
+  
+  // 备选方法: caretRangeFromPoint (WebKit/Blink)
+  if (document.caretRangeFromPoint) {
+    const range = document.caretRangeFromPoint(x, y);
+    if (range && range.startContainer && 
+        range.startContainer.nodeType === Node.TEXT_NODE) {
+      return {
+        offsetNode: range.startContainer,
+        offset: range.startOffset
+      };
+    }
+  }
+  
+  // 尝试遍历查找文本节点
+  for (const elem of elements) {
+    // 跳过特殊元素
+    if (elem.tagName === 'IFRAME') continue;
+    
+    // 使用TreeWalker查找最近的文本节点
+    const walker = document.createTreeWalker(
+      elem,
+      NodeFilter.SHOW_TEXT,
+      { acceptNode: node => node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT }
+    );
+    
+    // 获取第一个文本节点
+    const textNode = walker.nextNode();
+    if (textNode) {
+      return {
+        offsetNode: textNode,
+        offset: Math.min(5, Math.floor(textNode.textContent.length / 2))
+      };
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * 根据语言特性扩展文本选择
+ * @param {Range} range - 要扩展的DOM范围
+ */
+function expandSelectionByLanguage(range) {
+  if (!range || !range.startContainer || 
+      range.startContainer.nodeType !== Node.TEXT_NODE) return;
   
   const textNode = range.startContainer;
   const text = textNode.textContent;
-  const offset = range.startOffset;
+  const startOffset = range.startOffset;
   
-  // 检测当前字符的语言类型
-  const charAtOffset = text.charAt(offset) || '';
-  const isJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(charAtOffset);
+  // 确定开始字符的语言特性
+  const char = text.charAt(startOffset) || '';
+  const isJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(char);
   
-  let start = offset;
-  let end = offset;
+  // 定义分隔符模式
+  const jpSeparators = /[\s\n.,。、！!?？；;：:'"）)」】］]』〕｝》〉]/;
+  const enSeparators = /[\s\n.,;:!?()[\]{}'"]/;
+  
+  let start = startOffset;
+  let end = startOffset;
   
   if (isJapanese) {
-    // 日语文本扩展逻辑 - 保留日语符号，在标点和空格处停止
-    
-    // 日语分词保留的符号（不作为分隔符）
-    const keepJapaneseSymbols = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u301C\u30FB\u2026\u2015\u2212]/;
-    
-    // 向左查找 - 在文本边界处停止
+    // 日语文本处理 - 向前搜索
     while (start > 0) {
       const prevChar = text.charAt(start - 1);
-      // 停止条件：换行、空格、句号等标点
-      if (
-        prevChar === '\n' || prevChar === '\r' || 
-        prevChar === '\u3000' || // 全角空格
-        prevChar === ' ' || 
-        prevChar === '。' || prevChar === '！' || prevChar === '？' || 
-        prevChar === '.' || prevChar === '!' || prevChar === '?'
-      ) {
-        break;
-      }
-      
-      // 非日语字符且不在保留列表中也停止
-      if (!keepJapaneseSymbols.test(prevChar)) {
-        break;
-      }
-      
+      if (jpSeparators.test(prevChar)) break;
       start--;
     }
     
-    // 向右查找 - 使用相同逻辑
+    // 向后搜索
     while (end < text.length) {
       const nextChar = text.charAt(end);
-      if (
-        nextChar === '\n' || nextChar === '\r' || 
-        nextChar === '\u3000' || nextChar === ' ' || 
-        nextChar === '。' || nextChar === '！' || nextChar === '？' || 
-        nextChar === '.' || nextChar === '!' || nextChar === '?'
-      ) {
-        break;
-      }
-      
-      if (!keepJapaneseSymbols.test(nextChar)) {
-        break;
-      }
-      
+      if (jpSeparators.test(nextChar)) break;
       end++;
     }
-    
-    // 跳过左侧非文本字符
-    while (start < end && !keepJapaneseSymbols.test(text.charAt(start))) {
-      start++;
-    }
-    
-    debugLog(`日语文本扩展: 从${offset}扩展到[${start},${end}]，文本："${text.substring(start, end)}"`);
   } else {
-    // 非日语文本（英文等）的扩展逻辑 - 使用空格和标点作为边界
-    const nonWordChars = /[\s.,;:!?()[\]{}'"\/\\-]/;
-    
-    // 向左查找单词开始
-    while (start > 0 && !nonWordChars.test(text.charAt(start - 1))) {
+    // 英语/拉丁文本处理
+    while (start > 0) {
+      const prevChar = text.charAt(start - 1);
+      if (enSeparators.test(prevChar)) break;
       start--;
     }
     
-    // 向右查找单词结束
-    while (end < text.length && !nonWordChars.test(text.charAt(end))) {
+    while (end < text.length) {
+      const nextChar = text.charAt(end);
+      if (enSeparators.test(nextChar)) break;
       end++;
     }
-    
-    // 找不到有效单词时使用固定长度
-    if (start === end) {
-      start = Math.max(0, offset - 5);
-      end = Math.min(text.length, offset + 5);
-    }
-    
-    debugLog(`非日语文本扩展: "${text.substring(start, end)}"`);
   }
   
-  // 最大长度限制 - 防止选择过长文本
-  const MAX_LENGTH = 99999;
+  // 超长文本保护
+  const MAX_LENGTH = 100;
   if (end - start > MAX_LENGTH) {
-    if (offset - start > end - offset) {
+    // 根据光标位置保留较近部分
+    if (startOffset - start > end - startOffset) {
       // 光标偏左，保留右侧
-      start = Math.max(0, end - MAX_LENGTH);
+      start = end - MAX_LENGTH;
     } else {
       // 光标偏右，保留左侧
-      end = Math.min(text.length, start + MAX_LENGTH);
+      end = start + MAX_LENGTH;
     }
-    
-    debugLog(`文本超过最大长度，截断到: "${text.substring(start, end)}"`);
   }
   
   // 应用新范围
@@ -1199,52 +1371,45 @@ function expandTextSelection(range) {
   range.setEnd(textNode, end);
 }
 
+
 /**
- * 查找最相关段落
- * 作为备选文本提取方法，尝试找到鼠标位置附近最相关的段落
- * 由extractDOMText在精确定位失败时调用
- * 
- * @param {HTMLElement} element - 目标DOM元素
- * @param {number} x - 鼠标X坐标
- * @param {number} y - 鼠标Y坐标
- * @returns {string|null} - 提取的段落文本或null
+ * 从元素获取文本
+ * 从元素属性（如title、alt）中获取可翻译文本
+ * @param {Element} elem - DOM元素
+ * @returns {string|null} - 提取的文本或null
  */
-function findMostRelevantParagraph(element, x, y) {
-  // 尝试找到鼠标下最近的段落元素
-  let paragraph = element.closest('p, article, div, li, td, th, h1, h2, h3, h4, h5, h6');
+function getTextFromRandomElement(elem) {
+  // 跳过iframe (会有自己的内容脚本)
+  if (elem.nodeName === 'IFRAME') return null;
   
-  // 如果段落太长，尝试找到更小的文本块
-  if (paragraph && paragraph.textContent.length > 300) {
-    // 创建TreeWalker找到文本节点
-    const walker = document.createTreeWalker(
-      paragraph,
-      NodeFilter.SHOW_TEXT,
-      { 
-        acceptNode: (node) => {
-          // 只接受非空文本节点
-          return node.textContent.trim().length > 0 
-            ? NodeFilter.FILTER_ACCEPT 
-            : NodeFilter.FILTER_REJECT;
-        }
-      }
-    );
-    
-    // 查找最近的10个文本节点
-    const textNodes = [];
-    let count = 0;
-    while (walker.nextNode() && count < 10) {
-      textNodes.push(walker.currentNode);
-      count++;
-    }
-    
-    // 返回找到的第一个文本节点内容
-    if (textNodes.length > 0) {
-      return textNodes[0].textContent.trim();
+  // 检查常见的文本属性
+  if (elem.title && elem.title.trim().length) {
+    return elem.title;
+  }
+  
+  if ('alt' in elem && elem.alt && elem.alt.trim().length) {
+    // 忽略默认的"画像"等无意义alt文本
+    if (elem.alt !== '画像') {
+      return elem.alt;
     }
   }
   
-  // 返回段落文本或null
-  return paragraph ? paragraph.textContent.trim() : null;
+  // 检查表单元素
+  if (elem.nodeName === 'OPTION') {
+    return elem.text;
+  }
+  
+  if (elem.nodeName === 'SELECT' && elem.options.length) {
+    return elem.options[elem.selectedIndex].text;
+  }
+  
+  // 尝试获取input/textarea的value
+  if ((elem.nodeName === 'INPUT' || elem.nodeName === 'TEXTAREA') && 
+      (elem.type === 'text' || elem.type === 'textarea')) {
+    return elem.value;
+  }
+  
+  return null;
 }
 
 /**
@@ -1279,8 +1444,15 @@ class TextHighlighter {
     // 创建独立容器 - 覆盖整个页面但不影响交互
     this.highlightContainer = document.createElement('div');
     this.highlightContainer.className = 'hover-translate-container';
-    this.highlightContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999995;';
+    this.highlightContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:2147483646;';
     document.body.appendChild(this.highlightContainer);
+    
+    // 确认高亮容器已添加到DOM
+    if (document.body.contains(this.highlightContainer)) {
+      debugLog('高亮容器已成功添加到DOM');
+    } else {
+      debugLog('高亮容器添加失败', 'error');
+    }
     
     // 创建高亮样式 - 独立样式避免被页面CSS覆盖
     const styleId = 'hover-translate-highlight-style';
@@ -1295,7 +1467,7 @@ class TextHighlighter {
           border-radius: 2px;
           box-shadow: 0 0 3px rgba(230, 150, 0, 0.4);
           pointer-events: none;
-          z-index: 999998;
+          z-index: 2147483646;
         }
         
         @media (prefers-color-scheme: dark) {
@@ -1307,6 +1479,7 @@ class TextHighlighter {
         }
       `;
       document.head.appendChild(style);
+      debugLog('高亮样式已添加到head');
     }
     
     // 监听页面滚动以更新高亮位置
@@ -1322,17 +1495,31 @@ class TextHighlighter {
    * @param {Range} range - DOM范围对象
    */
   highlightRange(range) {
-    if (!range) return;
+    if (!range) {
+      debugLog('高亮失败: range参数为空', 'error');
+      return;
+    }
     
     this.clear();
     
     try {
-      const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-      const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+      debugLog(`开始高亮文本: "${range.toString().substring(0, 30)}${range.toString().length > 30 ? '...' : ''}"`);
+      
+      const scrollX = window.scrollX || document.documentElement.scrollLeft;
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      
+      // 获取可视区域尺寸
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
       
       // 获取范围的位置矩形
       const rects = range.getClientRects();
-      if (!rects || rects.length === 0) return;
+      if (!rects || rects.length === 0) {
+        debugLog('高亮失败: 无法获取文本位置矩形', 'warn');
+        return;
+      }
+      
+      debugLog(`获取到${rects.length}个矩形区域`);
       
       // 使用DocumentFragment减少DOM重绘
       const fragment = document.createDocumentFragment();
@@ -1346,32 +1533,112 @@ class TextHighlighter {
         // 忽略太小的矩形
         if (rect.width < 2 || rect.height < 2) continue;
         
+        // 检查是否在可视区域内
+        const clientLeft = rect.left;
+        const clientTop = rect.top;
+        const isInViewport = (
+          clientTop + rect.height > 0 &&
+          clientTop < viewportHeight &&
+          clientLeft + rect.width > 0 &&
+          clientLeft < viewportWidth
+        );
+        
+        if (!isInViewport) {
+          debugLog(`跳过矩形 #${i+1}: 不在可视区域内`);
+          continue;
+        }
+        
+        // 创建高亮遮罩
         const mask = document.createElement('div');
         mask.className = 'hover-translate-highlight-mask';
         
-        // 一次性设置所有样式，减少回流
-        Object.assign(mask.style, {
+        // 更醒目的样式
+        const style = {
           left: (rect.left + scrollX) + 'px',
           top: (rect.top + scrollY) + 'px',
           width: rect.width + 'px',
           height: rect.height + 'px',
-          transition: 'none'
-        });
+          transition: 'none',
+          backgroundColor: 'rgba(255, 200, 0, 0.4)',
+          border: '2px solid rgba(255, 150, 0, 0.8)',
+          boxShadow: '0 0 5px rgba(255, 150, 0, 0.5)',
+          zIndex: '2147483646'
+        };
+        
+        // 一次性设置所有样式，减少回流
+        Object.assign(mask.style, style);
         
         // 存储原始位置信息
         mask.dataset.originalLeft = (rect.left + scrollX) + '';
         mask.dataset.originalTop = (rect.top + scrollY) + '';
         
+        // 添加测试标记，以确保能看到元素
+        const marker = document.createElement('div');
+        marker.style.cssText = 'position:absolute; width:6px; height:6px; background:red; border-radius:50%; top:0; left:0;';
+        mask.appendChild(marker);
+        
         fragment.appendChild(mask);
         this.highlightElements.push(mask);
         count++;
+        
+        debugLog(`添加高亮矩形 #${i+1}: ${rect.left},${rect.top} (${rect.width}x${rect.height})`);
+      }
+      
+      // 如果没有添加任何高亮元素，不继续处理
+      if (count === 0) {
+        debugLog('没有任何高亮元素被添加，可能所有元素都在视图外');
+        return;
       }
       
       // 一次性添加所有元素
       this.highlightContainer.appendChild(fragment);
-      debugLog(`创建了${count}个高亮元素`);
+      debugLog(`创建了${count}个高亮元素，容器现有${this.highlightContainer.children.length}个子元素`);
+      
+      // 验证元素是否真的出现
+      setTimeout(() => {
+        const visible = this.highlightElements.some(el => {
+          const style = window.getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+        });
+        
+        debugLog(`高亮元素可见性检查: ${visible ? '可见' : '不可见'}`);
+        
+        // 緊急可見性強制解決方案
+        if (!visible && this.highlightElements.length > 0) {
+          debugLog('应用紧急可见性修复方案', 'warn');
+          
+          // 移除并重新添加到DOM顶层
+          this.highlightElements.forEach(el => {
+            if (el.parentNode) {
+              el.parentNode.removeChild(el);
+            }
+            
+            // 确保样式更加明显
+            el.style.cssText += '; background-color: rgba(255, 0, 0, 0.5) !important; border: 3px solid red !important; z-index: 2147483647 !important;';
+            
+            // 添加测试文本以确认元素存在
+            const testText = document.createElement('div');
+            testText.textContent = '高亮测试';
+            testText.style.cssText = 'position:absolute; top:0; left:0; color:red; font-weight:bold; font-size:12px; text-shadow:1px 1px 2px black;';
+            el.appendChild(testText);
+            
+            // 直接添加到body
+            document.body.appendChild(el);
+          });
+          
+          // 额外创建一个测试元素用于验证DOM操作
+          const testEl = document.createElement('div');
+          testEl.style.cssText = 'position:fixed; bottom:10px; right:10px; background:red; width:20px; height:20px; border-radius:50%; z-index:2147483647;';
+          document.body.appendChild(testEl);
+          
+          setTimeout(() => {
+            if (testEl.parentNode) testEl.parentNode.removeChild(testEl);
+          }, 5000);
+        }
+      }, 100);
     } catch (e) {
       debugLog('高亮创建失败: ' + e.message, 'error');
+      console.error('高亮错误详情:', e);
     }
   }
   
@@ -1383,8 +1650,8 @@ class TextHighlighter {
     if (this.highlightElements.length === 0) return;
     
     // 获取当前滚动位置
-    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollX = window.scrollX || document.documentElement.scrollLeft;
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
     
     // 更新每个高亮元素的位置
     for (const el of this.highlightElements) {
@@ -1394,13 +1661,34 @@ class TextHighlighter {
       const originalLeft = parseFloat(el.dataset.originalLeft);
       const originalTop = parseFloat(el.dataset.originalTop);
       
+      // 计算相对于当前滚动位置的坐标
+      const clientLeft = originalLeft - scrollX;
+      const clientTop = originalTop - scrollY;
+      
+      // 检查高亮元素是否在可视区域内
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const elHeight = el.offsetHeight;
+      const elWidth = el.offsetWidth;
+      
+      // 判断元素是否至少部分可见
+      const isVisible = (
+        clientTop + elHeight > 0 &&
+        clientTop < viewportHeight &&
+        clientLeft + elWidth > 0 &&
+        clientLeft < viewportWidth
+      );
+      
+      // 根据可见性设置元素样式
+      if (isVisible) {
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+      
       // 设置元素位置
       el.style.left = originalLeft + 'px';
       el.style.top = originalTop + 'px';
-      
-      // 记录当前滚动位置
-      el.dataset.lastScrollX = scrollX + '';
-      el.dataset.lastScrollY = scrollY + '';
     }
   }
   
@@ -1419,45 +1707,6 @@ class TextHighlighter {
   }
 }
 
-// 创建全局高亮器实例
-const highlighter = new TextHighlighter();
-debugLog('Highlighter instance created');
-
-/**
- * 全局鼠标移动监听器
- * 精确跟踪鼠标移动，改善悬停检测准确性
- * 页面加载时添加，影响整个扩展的行为
- */
-document.addEventListener('mousemove', (event) => {
-  // 只在悬停状态下处理
-  if (!isHovering) return;
-  
-  // 计算与上次位置的距离
-  const moveDistance = Math.sqrt(
-    Math.pow(event.clientX - lastMouseX, 2) + 
-    Math.pow(event.clientY - lastMouseY, 2)
-  );
-  
-  // 移动超过阈值时增加计数
-  if (moveDistance > 3) {
-    mouseMoveCount++;
-    
-    // 移动次数过多时取消悬停
-    if (mouseMoveCount > 15) {
-      isHovering = false;
-      clearTimeout(hoverTimer);
-      
-      // 如果正在显示工具提示且不在提取中，隐藏提示
-      if (tooltipVisible && !isExtracting) {
-        hideTooltip();
-      }
-    }
-    
-    // 更新记录的位置
-    lastMouseX = event.clientX;
-    lastMouseY = event.clientY;
-  }
-}, { passive: true });
 
 /**
  * 日语文本检测函数
@@ -1486,55 +1735,7 @@ function isJapaneseText(text) {
   return false;
 }
 
-/**
- * 设置更新消息处理器
- * 处理来自popup.js的设置更新消息
- * 由chrome.runtime.onMessage事件触发
- */
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'settingsUpdated') {
-    // 保存旧设置用于比较
-    const oldSettings = { ...settings };
-    
-    // 更新设置
-    settings = { ...settings, ...request.settings };
-    
-    // 记录变更
-    debugLog('设置已更新:', {
-      old: oldSettings,
-      new: settings,
-      changed: Object.keys(request.settings)
-    });
-    
-    // 应用新设置
-    applyNewSettings(oldSettings);
-    
-    // 响应消息
-    sendResponse({ status: 'settings updated' });
-    return true;
-  }
-  
-  if (request.action === 'testSettings') {
-    debugLog('测试设置...');
-    // 创建测试提示
-    const testMsg = document.createElement('div');
-    testMsg.style.position = 'fixed';
-    testMsg.style.top = '50px';
-    testMsg.style.left = '50%';
-    testMsg.style.transform = 'translateX(-50%)';
-    testMsg.style.backgroundColor = 'rgba(44, 123, 229, 0.8)';
-    testMsg.style.color = 'white';
-    testMsg.style.padding = '10px';
-    testMsg.style.borderRadius = '5px';
-    testMsg.style.zIndex = '999999';
-    testMsg.textContent = `当前设置: 已${settings.enabled ? '启用' : '禁用'}, 模式: ${settings.languageMode}, 延迟: ${settings.hoverDelay}ms`;
-    document.body.appendChild(testMsg);
-    
-    setTimeout(() => testMsg.remove(), 3000);
-    sendResponse({ status: 'settings tested' });
-    return true;
-  }
-});
+
 
 /**
  * 输出当前设置状态
@@ -1612,3 +1813,407 @@ function processText(text) {
   
   return { text, lang };
 }
+
+
+/**
+ * 测试DOM操作和可见性
+ * 在页面加载后直接调用，测试是否可以创建和显示元素
+ */
+function testVisibility() {
+  debugLog('正在测试DOM可见性...');
+  
+  // 创建一个测试元素
+  const testEl = document.createElement('div');
+  testEl.id = 'hover-translate-test-visibility';
+  testEl.style.cssText = 'position:fixed; bottom:20px; right:20px; width:20px; height:20px; background:red; border-radius:50%; z-index:2147483647; opacity:0.8; box-shadow:0 0 5px rgba(0,0,0,0.5);';
+  
+  // 添加到页面
+  document.body.appendChild(testEl);
+  
+  debugLog('测试元素已添加: ' + testEl.id);
+  
+  // 3秒后删除
+  setTimeout(() => {
+    if (document.body.contains(testEl)) {
+      testEl.remove();
+      debugLog('测试元素已移除');
+    } else {
+      debugLog('测试元素不在DOM中，可能已被移除', 'warn');
+    }
+  }, 10000);
+  
+  // 创建一个无ShadowDOM的测试提示
+  const testTooltip = document.createElement('div');
+  testTooltip.id = 'hover-translate-test-tooltip';
+  testTooltip.style.cssText = 'position:fixed; bottom:50px; right:20px; width:150px; padding:10px; background:white; border:1px solid #ccc; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.2); z-index:2147483647; font-family:sans-serif; font-size:12px;';
+  testTooltip.innerHTML = `
+    <div style="font-weight:bold;">测试提示框</div>
+    <div style="margin-top:5px;color:#333;">这是一个测试提示，用于验证DOM可见性</div>
+  `;
+  
+  document.body.appendChild(testTooltip);
+  debugLog('测试提示框已添加: ' + testTooltip.id);
+  
+  setTimeout(() => {
+    if (document.body.contains(testTooltip)) {
+      testTooltip.remove();
+      debugLog('测试提示框已移除');
+    }
+  }, 10000);
+}
+
+/**
+ * 取消所有正在進行的API請求
+ * 當用戶移動鼠標或切换元素時調用
+ * 防止請求堆積和回調衝突
+ */
+function cancelPendingRequests() {
+  // 這裡我們無法直接取消已發送的chrome.runtime.sendMessage，
+  // 但可以通過設置標識來忽略未來的回調結果
+  
+  if (isExtracting) {
+    debugLog('取消進行中的翻譯請求');
+    window._lastCancelTime = Date.now();
+  }
+  
+  // 重置狀態
+  isExtracting = false;
+  
+  // 設置全局取消標誌和時間戳
+  window._translationCancelled = true;
+  window._translationCancelTime = Date.now();
+  
+  // 確保在下次翻譯時會忽略已取消請求的結果
+  window._pendingRequests = window._pendingRequests || {};
+  window._pendingRequests.cancelled = true;
+  
+  // 如果正在顯示tooltip，強制隱藏
+  if (tooltipVisible) {
+    debugLog('因請求取消而強制隱藏tooltip');
+    hideTooltip();
+  }
+  
+  // 取消通過setTimeout延遲執行的處理
+  clearTimeout(hoverTimer);
+  
+  debugLog('已清除所有進行中的請求');
+}
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------
+
+
+// 内容脚本加载时的通知日志
+debugLog('Content script loaded');
+
+// 检查是否在iframe中运行
+const isInIframe = window.top !== window.self;
+debugLog(`运行环境: ${isInIframe ? 'iframe' : '主文档'}`);
+
+// 创建或获取全局tooltip实例
+let translationTooltip;
+
+// 处理在iframe中的情况
+if (isInIframe) {
+  debugLog('在iframe中运行，配置iframe适配器');
+  
+  // 全局监听来自主框架的消息
+  window.addEventListener('message', (event) => {
+    // 安全检查
+    if (!event.data || !event.data.type || !event.data.type.startsWith('hoverTranslate:')) {
+      return;
+    }
+    
+    debugLog('接收到主框架消息: ' + event.data.type);
+    
+    switch (event.data.type) {
+      case 'hoverTranslate:ping':
+        // 确认iframe可用
+        window.top.postMessage({ 
+          type: 'hoverTranslate:iframe-ready',
+          frameId: event.data.frameId || 'unknown'
+        }, '*');
+        break;
+        
+      case 'hoverTranslate:extract-text':
+        // 在iframe中提取文本
+        const { x, y, frameId } = event.data;
+        try {
+          const element = document.elementFromPoint(x, y);
+          if (element) {
+            const text = extractDOMText(element, x, y);
+            window.top.postMessage({
+              type: 'hoverTranslate:text-extracted',
+              frameId,
+              text,
+              success: !!text
+            }, '*');
+          } else {
+            window.top.postMessage({
+              type: 'hoverTranslate:text-extracted',
+              frameId,
+              success: false,
+              error: '未找到目标元素'
+            }, '*');
+          }
+        } catch (error) {
+          window.top.postMessage({
+            type: 'hoverTranslate:text-extracted',
+            frameId,
+            success: false,
+            error: error.message
+          }, '*');
+        }
+        break;
+    }
+  });
+  
+  // iframe中不需要创建tooltip
+  debugLog('在iframe中运行，不创建tooltip组件');
+} else {
+  // 主文档中创建tooltip
+  translationTooltip = new TranslationTooltip();
+  debugLog('Translation tooltip component created using direct DOM');
+  
+  // 设置iframe消息处理
+  window.addEventListener('message', (event) => {
+    if (!event.data || !event.data.type || !event.data.type.startsWith('hoverTranslate:')) {
+      return;
+    }
+    
+    debugLog('接收到iframe消息: ' + event.data.type);
+    
+    if (event.data.type === 'hoverTranslate:text-extracted' && event.data.success && event.data.text) {
+      debugLog('从iframe收到提取的文本: ' + event.data.text.substring(0, 30));
+      
+      // 从当前活动的iframe元素获取位置
+      if (lastHoveredIframe) {
+        const rect = lastHoveredIframe.getBoundingClientRect();
+        translateText(event.data.text, lastHoveredIframe);
+        isExtracting = false;
+      }
+    }
+  });
+}
+
+/**
+ * 全局状态变量
+ * 用于跟踪插件的运行状态和用户配置
+ * 
+ * selectedText: 当前选中的文本
+ * hoverTimer: 悬停计时器引用，用于处理延迟触发
+ * tooltipVisible: 当前提示框是否可见
+ * settings: 用户配置，从chrome.storage读取并缓存
+ */
+let selectedText = '';
+let hoverTimer = null;
+let tooltipVisible = false;
+let lastHoveredIframe = null; // 记录最后悬停的iframe
+let settings = {
+  enabled: true,              // 插件是否启用
+  hoverDelay: 500,            // 悬停触发延迟(毫秒)
+  showPronunciation: true,    // 是否显示发音
+  showExamples: true,         // 是否显示例句
+  languageMode: 'ja',         // 翻译模式：ja(日语)|en(英语)|all(所有)
+  jaOnly: true,               // 是否仅翻译日语(兼容旧版)
+  enOnly: false,              // 是否仅翻译英语(兼容旧版)
+  debugMode: false            // 调试模式
+};
+
+// 内容脚本初始化时加载设置
+loadSettings();
+
+/**
+ * 监听设置变化
+ * 当storage发生变化时自动更新本地设置
+ * 由chrome.storage.onChanged事件触发
+ */
+chrome.storage.onChanged.addListener((changes) => {
+  let hasChanges = false;
+  
+  for (let key in changes) {
+    if (key in settings) {
+      const oldValue = settings[key];
+      const newValue = changes[key].newValue;
+      
+      settings[key] = newValue;
+      hasChanges = true;
+      
+      debugLog(`设置已更新[${key}]: ${oldValue} -> ${newValue}`);
+    }
+  }
+  
+  if (hasChanges) {
+    debugLog('设置已更新，当前设置: ' + JSON.stringify(settings));
+  }
+});
+
+/**
+ * 添加页面事件监听器
+ * 在内容脚本初始化时添加，处理鼠标悬停、离开和点击事件
+ */
+document.addEventListener('mouseover', handleMouseOver);
+document.addEventListener('mouseout', handleMouseOut);
+document.addEventListener('click', handleClick);
+debugLog('Event listeners added');
+
+/**
+ * 全局状态变量 - 鼠标和悬停相关
+ * 用于跟踪鼠标位置和悬停状态
+ * 
+ * lastHoveredElement: 上次悬停的元素
+ * lastMouseX/Y: 上次记录的鼠标坐标
+ * isExtracting: 是否正在提取文本(防止重复处理)
+ * lastExtractedRange: 上次提取的文本范围
+ * hoverStartTime: 当前悬停开始时间
+ * mouseMoveCount: 悬停期间鼠标移动次数
+ * isHovering: 是否处于悬停状态
+ */
+let lastHoveredElement = null;
+let lastMouseX = 0;
+let lastMouseY = 0;
+let isExtracting = false;
+let lastExtractedRange = null;
+let hoverStartTime = 0;
+let mouseMoveCount = 0;
+let isHovering = false;
+
+
+
+// 创建全局高亮器实例
+const highlighter = new TextHighlighter();
+debugLog('Highlighter instance created');
+
+/**
+ * 全局鼠标移动监听器
+ * 精确跟踪鼠标移动，改善悬停检测准确性
+ * 页面加载时添加，影响整个扩展的行为
+ */
+document.addEventListener('mousemove', (event) => {
+  // 只在悬停状态下处理
+  if (!isHovering) return;
+  
+  // 计算与上次位置的距离
+  const moveDistance = Math.sqrt(
+    Math.pow(event.clientX - lastMouseX, 2) + 
+    Math.pow(event.clientY - lastMouseY, 2)
+  );
+  
+  // 移动超过阈值时增加计数
+  if (moveDistance > 3) {
+    mouseMoveCount++;
+    
+    // 移动次数过多时取消悬停
+    if (mouseMoveCount > 15) {
+      isHovering = false;
+      clearTimeout(hoverTimer);
+      
+      // 输出当前状态以调试
+      debugLog(`鼠标移动次数超过阈值(${mouseMoveCount})，取消悬停, 当前提取状态=${isExtracting}, tooltip=${tooltipVisible}`);
+      
+      // 清除高亮
+      if (highlighter) {
+        highlighter.clear();
+        debugLog('鼠标移动超出阈值，清除高亮');
+      }
+      
+      // 取消所有正在进行的API请求
+      cancelPendingRequests();
+      
+      // 如果正在显示工具提示，隐藏它
+      if (tooltipVisible) {
+        hideTooltip();
+      }
+    } else if (moveDistance > 30) {
+      // 鼠标移动距离过大，立即取消当前请求
+      debugLog(`鼠标移动距离过大(${moveDistance.toFixed(1)}px)，取消当前请求，当前提取状态=${isExtracting}`);
+      
+      // 清除高亮
+      if (highlighter) {
+        highlighter.clear();
+        debugLog('鼠标移动距离过大，清除高亮');
+      }
+      
+      cancelPendingRequests();
+    } else if (moveDistance > 8) {
+      // 即使小幅度移动也清除高亮，保持整洁的用户体验
+      if (highlighter && highlighter.highlightElements.length > 0) {
+        highlighter.clear();
+        debugLog('鼠标小幅移动，清除高亮以保持界面整洁');
+      }
+    }
+    
+    // 更新记录的位置
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+  }
+}, { passive: true });
+
+/**
+ * 设置更新消息处理器
+ * 处理来自popup.js的设置更新消息
+ * 由chrome.runtime.onMessage事件触发
+ */
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'settingsUpdated') {
+    // 保存旧设置用于比较
+    const oldSettings = { ...settings };
+    
+    // 更新设置
+    settings = { ...settings, ...request.settings };
+    
+    // 记录变更
+    debugLog('设置已更新:', {
+      old: oldSettings,
+      new: settings,
+      changed: Object.keys(request.settings)
+    });
+    
+    // 应用新设置
+    applyNewSettings(oldSettings);
+    
+    // 响应消息
+    sendResponse({ status: 'settings updated' });
+    return true;
+  }
+  
+  if (request.action === 'testSettings') {
+    debugLog('测试设置...');
+    // 创建测试提示
+    const testMsg = document.createElement('div');
+    testMsg.style.position = 'fixed';
+    testMsg.style.top = '50px';
+    testMsg.style.left = '50%';
+    testMsg.style.transform = 'translateX(-50%)';
+    testMsg.style.backgroundColor = 'rgba(44, 123, 229, 0.8)';
+    testMsg.style.color = 'white';
+    testMsg.style.padding = '10px';
+    testMsg.style.borderRadius = '5px';
+    testMsg.style.zIndex = '999999';
+    testMsg.textContent = `当前设置: 已${settings.enabled ? '启用' : '禁用'}, 模式: ${settings.languageMode}, 延迟: ${settings.hoverDelay}ms`;
+    document.body.appendChild(testMsg);
+    
+    setTimeout(() => testMsg.remove(), 3000);
+    sendResponse({ status: 'settings tested' });
+    return true;
+  }
+});
+
+// // 页面加载完成后直接测试
+// if (document.readyState === 'complete') {
+//   setTimeout(testVisibility, 1000);
+// } else {
+//   window.addEventListener('load', () => {
+//     setTimeout(testVisibility, 1000);
+//   });
+// }
+
+
